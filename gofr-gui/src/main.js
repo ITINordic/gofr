@@ -1,4 +1,4 @@
-import Vue from 'vue'
+import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import { store } from './store/store'
@@ -56,38 +56,47 @@ const loading = setInterval(() => {
   bar.animate(progress);
 }, 1100);
 
-Object.defineProperty(Vue.prototype, '$fhirpath', {
-  value: fhirpath
-})
-Object.defineProperty(Vue.prototype, '$fhirutils', {
-  value: fhirutils
-})
+// Create a new Vue app instance
+const app = createApp(App)
 
-const tasksVerificationPlugin = {
-  install(Vue) {
-    Vue.$tasksVerification = tasksVerification
-  }
-}
+// Global properties instead of Vue.prototype
+app.config.globalProperties.$fhirpath = fhirpath
+app.config.globalProperties.$fhirutils = fhirutils
+app.config.globalProperties.$tasksVerification = tasksVerification
 
-tasksVerificationPlugin.install = Vue => {
-  Vue.$tasksVerification = tasksVerification
-  Object.defineProperties(Vue.prototype, {
-    $tasksVerification: {
-      get() {
-        return tasksVerification
-      }
-    }
-  })
-}
-Vue.use(tasksVerificationPlugin)
+// Configure plugins
 axios.defaults.withCredentials = true
-Vue.use(VueCookies)
-Vue.use(vuelidate)
-Vue.use(VueAxios, axios)
-Vue.use(VueSession)
-Vue.config.productionTip = false
+app.use(VueCookies)
+app.use(vuelidate)
+app.use(VueAxios, axios)
+app.use(VueSession)
+app.use(store)
+app.use(router)
+app.use(i18n)
+app.use(vuetify)
 
-export const eventBus = new Vue()
+// Create a simple event bus for Vue 3
+import { reactive } from 'vue'
+export const eventBus = reactive({
+  emit(event, ...args) {
+    this[event]?.forEach(handler => handler(...args))
+  },
+  on(event, handler) {
+    if (!this[event]) {
+      this[event] = []
+    }
+    this[event].push(handler)
+  },
+  off(event, handler) {
+    if (!this[event]) {
+      return
+    }
+    const index = this[event].indexOf(handler)
+    if (index !== -1) {
+      this[event].splice(index, 1)
+    }
+  }
+})
 
 if (guiConfig.BACKEND_HOST === '.') {
   guiConfig.BACKEND_HOST = window.location.hostname
@@ -162,9 +171,9 @@ function kcAuthenticatePublicUser(genConfig) {
     if (genConfig.public_access.enabled === false) {
       return resolve(false)
     }
-    Vue.$keycloak.init({onLoad: 'check-sso', checkLoginIframe: false}).then( () => {
+    app.config.globalProperties.$keycloak.init({onLoad: 'check-sso', checkLoginIframe: false}).then( () => {
       //if already authenticated then skip
-      if(Vue.$keycloak.token || VueCookies.get('loggedout-public') == 'true') {
+      if(app.config.globalProperties.$keycloak.token || VueCookies.get('loggedout-public') == 'true') {
         VueCookies.set('loggedout-public', false)
         return resolve(false)
       }
@@ -174,10 +183,10 @@ function kcAuthenticatePublicUser(genConfig) {
         let userinfo = jwt_decode(resp.data.access_token)
         let token = resp.data.access_token
         let refreshToken = resp.data.refresh_token
-        Vue.$keycloak.init({onLoad: 'login-required', checkLoginIframe: false, token, refreshToken}).then( () => {
+        app.config.globalProperties.$keycloak.init({onLoad: 'login-required', checkLoginIframe: false, token, refreshToken}).then( () => {
           store.state.public_access = true
           setInterval(() =>{
-            Vue.$keycloak.updateToken(70)
+            app.config.globalProperties.$keycloak.updateToken(70)
           }, 60000)
           axios.interceptors.request.use((config) => {
             config.headers['Authorization'] = `Bearer ${resp.data.access_token}`
@@ -226,24 +235,12 @@ function kcAuthenticatePublicUser(genConfig) {
 function renderApp(genConfig) {
   clearInterval(loading)
   document.getElementById("progressBarContainer").remove()
-  new Vue({
-    router,
-    store,
-    i18n,
-    vuetify,
-    data () {
-      return {
-        config: genConfig
-      }
-    },
-    render: function (createElement) {
-      return createElement(App, {
-        props: {
-          generalConfig: this.config
-        }
-      })
-    }
-  }).$mount('#app')
+  
+  // Set the general config as a property on the app instance
+  app.config.globalProperties.$generalConfig = genConfig
+  
+  // Mount the app
+  app.mount('#app')
 }
 /* eslint-disable no-new */
 getDHIS2StoreConfig((storeConfig) => {
@@ -272,23 +269,10 @@ getDHIS2StoreConfig((storeConfig) => {
         onLoad: 'login-required'
       }
       let keycloak = Keycloak(initOptions);
-      const Plugin = {
-        install(Vue) {
-          Vue.$keycloak = keycloak
-        }
-      }
-
-      Plugin.install = Vue => {
-        Vue.$keycloak = keycloak
-        Object.defineProperties(Vue.prototype, {
-          $keycloak: {
-            get() {
-              return keycloak
-            }
-          }
-        })
-      }
-      Vue.use(Plugin)
+      
+      // Add keycloak to app global properties
+      app.config.globalProperties.$keycloak = keycloak
+      
       let authenticated = await kcAuthenticatePublicUser(genConfig)
       if(!authenticated) {
         if(!keycloak.token) {
@@ -370,13 +354,13 @@ getDHIS2StoreConfig((storeConfig) => {
         } else if (genConfig.public_access.enabled === true) {
           await gofrAuthenticatePublicUser()
         }
-        Vue.prototype.$keycloak = null
+        app.config.globalProperties.$keycloak = null
         renderApp(genConfig)
       }).catch(async() => {
         if (genConfig.public_access.enabled === true) {
           await gofrAuthenticatePublicUser()
         }
-        Vue.prototype.$keycloak = null
+        app.config.globalProperties.$keycloak = null
         renderApp(genConfig)
       })
     }

@@ -1,11 +1,8 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
+import { createStore } from 'vuex'
 import axios from 'axios'
 import router from '../router'
 
-Vue.use(Vuex)
-
-export const store = new Vuex.Store({
+export const store = createStore({
   state: {
     version: "",
     baseRouterViewKey: 0,

@@ -1,10 +1,10 @@
 <template>
   <v-app>
     <appToolbar></appToolbar>
-    <appSideMenu v-if="$store.state.auth.userID" :nav="nav"></appSideMenu>
+    <appSideMenu v-if="store.state.auth.userID" :nav="nav"></appSideMenu>
     <v-main>
       <v-dialog
-        v-model="$store.state.dynamicProgress"
+        v-model="store.state.dynamicProgress"
         persistent
         width="300"
       >
@@ -13,9 +13,9 @@
           dark
         >
           <v-card-text>
-            <center>{{$store.state.progressTitle}}</center>
-            <div v-if="$store.state.progressSubTitle">
-              <center>{{$store.state.progressSubTitle}}</center>
+            <center>{{store.state.progressTitle}}</center>
+            <div v-if="store.state.progressSubTitle">
+              <center>{{store.state.progressSubTitle}}</center>
             </div>
             <v-progress-linear
               indeterminate
@@ -27,28 +27,28 @@
       </v-dialog>
       <v-dialog
         persistent
-        v-model="$store.state.dialogError"
+        v-model="store.state.dialogError"
         max-width="500px"
       >
         <v-card>
           <v-toolbar
-            :color="$store.state.errorColor"
+            :color="store.state.errorColor"
             dark
           >
             <v-toolbar-title>
-              {{$store.state.errorTitle}}
+              {{store.state.errorTitle}}
             </v-toolbar-title>
             <v-spacer></v-spacer>
             <v-btn
               icon
               dark
-              @click.native="$store.state.dialogError = false"
+              @click="store.state.dialogError = false"
             >
               <v-icon>mdi-close</v-icon>
             </v-btn>
           </v-toolbar>
           <v-card-text>
-            {{$store.state.errorDescription}}
+            {{store.state.errorDescription}}
           </v-card-text>
           <v-card-actions>
             <v-btn
@@ -59,7 +59,7 @@
         </v-card>
       </v-dialog>
       <v-dialog
-        v-model="$store.state.initializingApp"
+        v-model="store.state.initializingApp"
         persistent
         width="300"
       >
@@ -80,14 +80,14 @@
       <v-snackbar
         app
         class="mt-12"
-        v-model="$store.state.message.active"
-        :color="$store.state.message.type"
-        :timeout="$store.state.message.timeout"
+        v-model="store.state.message.active"
+        :color="store.state.message.type"
+        :timeout="store.state.message.timeout"
         top
         multi-line
         >
-        {{ $store.state.message.text }}
-          <v-btn icon dark @click="$store.commit('closeMessage')">
+        {{ store.state.message.text }}
+          <v-btn icon dark @click="store.commit('closeMessage')">
             <v-icon>mdi-close</v-icon>
           </v-btn>
       </v-snackbar>
@@ -95,13 +95,13 @@
       <br>
       <center>
         <v-alert
-          :style="{width: $store.state.alert.width}"
-          v-model="$store.state.alert.show"
-          :type="$store.state.alert.type"
-          :dismissible="$store.state.alert.dismisible"
-          :transition="$store.state.alert.transition"
+          :style="{width: store.state.alert.width}"
+          v-model="store.state.alert.show"
+          :type="store.state.alert.type"
+          :dismissible="store.state.alert.dismisible"
+          :transition="store.state.alert.transition"
         >
-          {{$store.state.alert.msg}}
+          {{store.state.alert.msg}}
         </v-alert>
       </center>
       <v-layout
@@ -116,7 +116,7 @@
 
         </v-flex>
       </v-layout>
-      <router-view :key='$route.path'></router-view>
+      <router-view :key='route.path'></router-view>
     </v-main>
     <v-footer
       dark
@@ -127,7 +127,7 @@
     >
       <v-spacer></v-spacer>
       <label style="font-size: 10px">
-        {{ $t(`App.hardcoded-texts.GOFR Version`) }} {{$store.state.version}}
+        {{ t(`App.hardcoded-texts.GOFR Version`) }} {{store.state.version}}
       </label>
     </v-footer>
   </v-app>
@@ -141,53 +141,71 @@ import { generalMixin } from './mixins/generalMixin'
 import { dataSourcePairMixin } from './components/DataSourcesPair/dataSourcePairMixin'
 import { eventBus } from './main'
 import { uuid } from 'vue-uuid'
-import {
-  tasksVerification
-} from './modules/tasksVerification'
+import { tasksVerification } from './modules/tasksVerification'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { ref, onMounted, onUnmounted, provide } from 'vue'
 
 export default {
   mixins: [dataSourcePairMixin, scoresMixin, generalMixin],
-  props: ['generalConfig'],
-  data () {
+  props: {
+    generalConfig: Object
+  },
+  setup() {
+    const store = useStore()
+    const route = useRoute()
+    const { t } = useI18n()
+    
+    // Provide tasksVerification for injection in router
+    provide('tasksVerification', tasksVerification)
+    
+    const fixed = ref(false)
+    const activeDataSourcePair = ref({})
+    const nav = ref({
+      active: null,
+      menu: {}
+    })
+    
     return {
-      fixed: false,
-      activeDataSourcePair: {},
-      tasksVerification: tasksVerification,
-      nav: {
-        active: null,
-        menu: {}
-      }
+      store,
+      route,
+      t,
+      fixed,
+      activeDataSourcePair,
+      tasksVerification,
+      nav
     }
   },
   methods: {
     closeDialogError () {
-      this.$store.state.errorColor = 'primary'
-      this.$store.state.dialogError = false
+      this.store.state.errorColor = 'primary'
+      this.store.state.dialogError = false
     },
     renderInitialPage () {
-      if(!this.$store.state.config.userConfig.FRDatasource) {
-        if(this.$store.state.auth.username === "public@gofr.org") {
-          this.$store.state.config.userConfig.FRDatasource = this.$store.state.config.generalConfig.public_access.partition
-        } else if(this.$store.state.dataSources.length > 0) {
-          let hasDefault = this.$store.state.dataSources.find((src) => {
+      if(!this.store.state.config.userConfig.FRDatasource) {
+        if(this.store.state.auth.username === "public@gofr.org") {
+          this.store.state.config.userConfig.FRDatasource = this.store.state.config.generalConfig.public_access.partition
+        } else if(this.store.state.dataSources.length > 0) {
+          let hasDefault = this.store.state.dataSources.find((src) => {
             return src.name === 'DEFAULT'
           })
           if(hasDefault) {
-            this.$store.state.config.userConfig.FRDatasource = 'DEFAULT'
+            this.store.state.config.userConfig.FRDatasource = 'DEFAULT'
           } else {
-            this.$store.state.config.userConfig.FRDatasource = this.$store.state.dataSources[0].name
+            this.store.state.config.userConfig.FRDatasource = this.store.state.dataSources[0].name
           }
         }
       }
-      let source1DB = this.$store.state.activePair.source1.name
-      let source2DB = this.$store.state.activePair.source2.name
+      let source1DB = this.store.state.activePair.source1.name
+      let source2DB = this.store.state.activePair.source2.name
       if (
         (!source1DB || !source2DB) &&
-        (this.$store.state.dataSources.length > 1 ||
-          this.$store.state.dataSourcePairs.length > 0)
+        (this.store.state.dataSources.length > 1 ||
+          this.store.state.dataSourcePairs.length > 0)
       ) {
-        this.$store.state.initializingApp = false
-        if(this.$store.state.auth.username === "public@gofr.org") {
+        this.store.state.initializingApp = false
+        if(this.store.state.auth.username === "public@gofr.org") {
           this.$router.push({ name: 'HomePublic' })
         } else {
           this.$router.push({ name: 'Home' })
@@ -195,8 +213,8 @@ export default {
         return
       }
       if (!source1DB || !source2DB) {
-        this.$store.state.initializingApp = false
-        if(this.$store.state.auth.username === "public@gofr.org") {
+        this.store.state.initializingApp = false
+        if(this.store.state.auth.username === "public@gofr.org") {
           this.$router.push({ name: 'HomePublic' })
         } else {
           this.$router.push({ name: 'Home' })
@@ -204,11 +222,11 @@ export default {
         return
       }
       axios.get( '/uploadAvailable/' + source1DB + '/' + source2DB ).then(results => {
-        this.$store.state.initializingApp = false
+        this.store.state.initializingApp = false
         if (results.data.dataUploaded) {
-          this.$store.state.recalculateScores = true
+          this.store.state.recalculateScores = true
         }
-        if(this.$store.state.auth.username === "public@gofr.org") {
+        if(this.store.state.auth.username === "public@gofr.org") {
           this.$router.push({ name: 'HomePublic' })
         } else {
           this.$router.push({ name: 'Home' })
@@ -216,7 +234,7 @@ export default {
       })
       .catch(err => {
         console.log(err)
-        if(this.$store.state.auth.username === "public@gofr.org") {
+        if(this.store.state.auth.username === "public@gofr.org") {
           this.$router.push({ name: 'HomePublic' })
         } else {
           this.$router.push({ name: 'Home' })
@@ -445,82 +463,82 @@ export default {
     'appSideMenu': SideMenu
   },
   created () {
-    eventBus.$on('refreshApp', () => {
+    eventBus.on('refreshApp', () => {
       this.getDataSources()
     })
-    eventBus.$on('recalculateScores', () => {
-      this.$store.state.recalculateScores = true
+    eventBus.on('recalculateScores', () => {
+      this.store.state.recalculateScores = true
       this.$router.push({ name: 'FacilityReconScores' })
     })
-    eventBus.$on('getDataSources', () => {
+    eventBus.on('getDataSources', () => {
       this.getDataSources()
     })
-    eventBus.$on('getUserConfig', () => {
+    eventBus.on('getUserConfig', () => {
       this.getUserConfig()
     })
-    eventBus.$on('getGeneralConfig', () => {
+    eventBus.on('getGeneralConfig', () => {
       this.getGeneralConfig()
     })
-    eventBus.$on('getDataSourcePair', () => {
+    eventBus.on('getDataSourcePair', () => {
       this.getDataSourcePair()
     })
-    eventBus.$on('refresh-login', () => {
+    eventBus.on('refresh-login', () => {
       let method = 'GET'
-      if(this.$store.state.idp === 'keycloak') {
+      if(this.store.state.idp === 'keycloak') {
         method = 'POST'
       }
       axios({
         method,
         url: '/auth'
       }).then((authResp) => {
-        if(this.$store.state.idp === 'keycloak' && authResp.data.resource) {
-          this.$store.state.auth.userObj = authResp.data
+        if(this.store.state.idp === 'keycloak' && authResp.data.resource) {
+          this.store.state.auth.userObj = authResp.data
           this.$cookies.set('userObj', JSON.stringify(authResp.data), 'infinity')
         } else if(authResp.data.userObj && authResp.data.userObj.resource){
-          this.$store.state.auth.userObj = authResp.data.userObj
+          this.store.state.auth.userObj = authResp.data.userObj
         }
       })
     })
 
-    if (!this.$store.state.auth.userObj.resource || this.$store.state.auth.userObj.resource.id === 'ihris-user-loggedout') {
-      if (this.$store.state.idp === 'dhis2') {
+    if (!this.store.state.auth.userObj.resource || this.store.state.auth.userObj.resource.id === 'ihris-user-loggedout') {
+      if (this.store.state.idp === 'dhis2') {
         return this.$router.push({ name: 'DHIS2Auth' })
       }
-      this.$store.state.initializingApp = false
+      this.store.state.initializingApp = false
       return this.$router.push({ name: 'Login' })
     }
-    this.$store.state.config.generalConfig = this.generalConfig
-    if(this.$store.state.idp === 'keycloak') {
-      this.$store.state.clientId = uuid.v4()
-      this.$store.state.initializingApp = true
-      this.$store.state.denyAccess = false
+    this.store.state.config.generalConfig = this.generalConfig
+    if(this.store.state.idp === 'keycloak') {
+      this.store.state.clientId = uuid.v4()
+      this.store.state.initializingApp = true
+      this.store.state.denyAccess = false
       this.getUserConfig()
     } else {
-      if (this.$store.state.auth.userObj.resource) {
-        if (!this.$store.state.config.generalConfig.authDisabled) {
+      if (this.store.state.auth.userObj.resource) {
+        if (!this.store.state.config.generalConfig.authDisabled) {
           axios.get('/isSessionActive/').then(() => {
             // will come here only if the session is active
-            this.$store.state.clientId = uuid.v4()
-            this.$store.state.initializingApp = true
-            this.$store.state.denyAccess = false
+            this.store.state.clientId = uuid.v4()
+            this.store.state.initializingApp = true
+            this.store.state.denyAccess = false
             this.getUserConfig()
           }).catch(() => {
-            this.$store.state.initializingApp = false
+            this.store.state.initializingApp = false
           })
         } else {
-          this.$store.state.initializingApp = false
+          this.store.state.initializingApp = false
           this.$router.push('login')
         }
       } else {
-        this.$store.state.initializingApp = false
+        this.store.state.initializingApp = false
       }
     }
   },
-  mounted: function() {
+  mounted() {
     let elHtml = document.getElementsByTagName('html')[0]
     elHtml.style.overflowY = 'auto'
   },
-  destroyed: function() {
+  unmounted() {
     let elHtml = document.getElementsByTagName('html')[0]
     elHtml.style.overflowY = null
   },

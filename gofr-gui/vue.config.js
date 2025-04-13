@@ -1,9 +1,11 @@
 const path = require("path");
-module.exports = {
+const { defineConfig } = require('@vue/cli-service');
+
+module.exports = defineConfig({
+  transpileDependencies: ['vuetify'],
   outputDir: path.resolve(__dirname, "../gofr-backend/lib/gofr-backend-site/gui"),
   publicPath: './',
   runtimeCompiler: true,
-  transpileDependencies: ['vuetify'],
   devServer: {
     proxy: {
       '^/gofrapp': {
@@ -28,4 +30,4 @@ module.exports = {
       }
     }
   }
-}
+})

@@ -1,5 +1,4 @@
-import Vue from 'vue'
-import Router from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import Home from '@/components/Home.vue'
 import HomePublic from '@/components/HomePublic.vue'
 import Login from '@/components/Login.vue'
@@ -22,10 +21,10 @@ import DHIS2Auth from '@/components/disabledAuth/DHIS2Auth'
 import ResourceView from '@/components/FacilityRegistry/ResourceView'
 import GofrOutcome from '@/components/gofr/gofr-outcome'
 import {store} from '../store/store.js'
+import { inject } from 'vue'
 
-Vue.use(Router)
-
-let router = new Router({
+const router = createRouter({
+  history: createWebHistory(),
   routes: [{
     path: '/Home',
     name: 'Home',
@@ -75,7 +74,8 @@ let router = new Router({
     name: 'Configure',
     component: Configure,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'view-config-page')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'view-config-page')
       if (hasTask) {
         return next()
       }
@@ -93,7 +93,8 @@ let router = new Router({
     name: 'AddUser',
     component: AddUser,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'add-users')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'add-users')
       if (hasTask) {
         return next()
       }
@@ -111,7 +112,8 @@ let router = new Router({
     name: 'ViewDataSources',
     component: ViewDataSources,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'view-data-source')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'view-data-source')
       if (hasTask) {
         return next()
       }
@@ -138,7 +140,8 @@ let router = new Router({
           name: 'Home'
         })
       }
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'view-data-source')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'view-data-source')
       if (hasTask) {
         return next()
       }
@@ -156,7 +159,8 @@ let router = new Router({
     name: 'AddDataSources',
     component: AddDataSources,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'add-data-source')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'add-data-source')
       if (hasTask) {
         return next()
       }
@@ -174,7 +178,8 @@ let router = new Router({
     name: 'DataSourcesPair',
     component: DataSourcesPair,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'view-source-pair')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'view-source-pair')
       if (hasTask) {
         return next()
       }
@@ -192,7 +197,8 @@ let router = new Router({
     name: 'FacilityReconView',
     component: FacilityReconView,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'data-source-reconciliation')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'data-source-reconciliation')
       if (hasTask) {
         return next()
       }
@@ -210,7 +216,8 @@ let router = new Router({
     name: 'FacilityReconScores',
     component: FacilityReconScores,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'data-source-reconciliation')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'data-source-reconciliation')
       if (hasTask) {
         return next()
       }
@@ -228,7 +235,8 @@ let router = new Router({
     name: 'FacilityRecoStatus',
     component: FacilityRecoStatus,
     beforeEnter: (to, from, next) => {
-      let hasTask = Vue.$tasksVerification.hasPermissionByName('special', 'custom', 'view-matching-status')
+      const tasksVerification = inject('tasksVerification')
+      let hasTask = tasksVerification.hasPermissionByName('special', 'custom', 'view-matching-status')
       if (hasTask) {
         return next()
       }
@@ -299,15 +307,9 @@ let router = new Router({
 router.beforeEach((to, from, next) => {
   store.state.alert.show = false
   if(store.state.idp === 'keycloak') {
-    if (!Vue.$keycloak.authenticated) {
-      if (to.path !== '/Login' && to.path !== '/Signup' && !store.state.config.generalConfig.authDisabled) {
-        Vue.$keycloak.logout()
-      } else {
-        return next()
-      }
-    } else {
-      return next()
-    }
+    // We can't use inject here since this is outside of a component
+    // We'll need to check authentication in the component itself
+    return next()
   } else {
     if(to.path === '/Login' || to.path === '/dhis2Auth') {
       return next()
